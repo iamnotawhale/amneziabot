@@ -21,4 +21,26 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script: |
-            bash /opt/amneziabot/scripts/prod/cicd.sh deploy /opt/amneziabot main
+            set -euo pipefail
+
+            REPO_DIR="/opt/amneziabot"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              echo "Repo not found at $REPO_DIR, cloning..."
+              sudo mkdir -p /opt
+              sudo rm -rf "$REPO_DIR"
+              sudo git clone "$REPO_URL" "$REPO_DIR"
+              sudo chown -R "${USER}:${USER}" "$REPO_DIR"
+            fi
+
+            cd "$REPO_DIR"
+            git fetch origin
+            git reset --hard origin/main
+
+            if [ ! -f "$REPO_DIR/scripts/prod/cicd.sh" ]; then
+              echo "scripts/prod/cicd.sh not found after update"
+              exit 1
+            fi
+
+            bash "$REPO_DIR/scripts/prod/cicd.sh" deploy "$REPO_DIR" main
