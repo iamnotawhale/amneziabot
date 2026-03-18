@@ -14,7 +14,7 @@ Commands:
   build                        Build admin UI and backend jar
   run                          Run built jar with deploy/.env
   install-service [repo user]  Install/refresh systemd service
-  deploy [repo ref]            CI/CD deploy: fetch/reset, build, restart service
+  deploy [repo ref]            CI/CD deploy: fetch/reset, build (or artifact), restart service
 
 Examples:
   sudo bash scripts/prod/cicd.sh install-deps
@@ -198,6 +198,7 @@ EOF
 cmd_deploy() {
   local repo_dir="${1:-/opt/amneziabot}"
   local git_ref="${2:-main}"
+  local artifact_path="${ARTIFACT_PATH:-}"
 
   cd "${repo_dir}"
 
@@ -212,22 +213,27 @@ cmd_deploy() {
     exec bash "${repo_dir}/scripts/prod/cicd.sh" deploy "${repo_dir}" "${git_ref}"
   fi
 
+  local required_tools=("java" "git")
+  if [[ -z "${artifact_path}" ]]; then
+    required_tools=("npm" "mvn" "java" "git")
+  fi
+
   local missing_tools=()
   local need_runtime_fix="false"
-  for tool in npm mvn java git; do
+  for tool in "${required_tools[@]}"; do
     if ! command -v "${tool}" >/dev/null 2>&1; then
       missing_tools+=("${tool}")
     fi
   done
 
-  if command -v node >/dev/null 2>&1; then
+  if [[ -z "${artifact_path}" ]] && command -v node >/dev/null 2>&1; then
     local node_major
     node_major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
     if [[ ! "${node_major}" =~ ^[0-9]+$ ]] || [[ "${node_major}" -lt 18 ]]; then
       need_runtime_fix="true"
       echo "Node.js is too old: $(node -v) (required >= v18)"
     fi
-  else
+  elif [[ -z "${artifact_path}" ]]; then
     need_runtime_fix="true"
   fi
 
@@ -252,7 +258,17 @@ cmd_deploy() {
     command -v npm >/dev/null 2>&1 && npm -v || true
   fi
 
-  bash scripts/prod/cicd.sh build
+  if [[ -n "${artifact_path}" ]]; then
+    if [[ ! -f "${artifact_path}" ]]; then
+      echo "[deploy] Artifact not found: ${artifact_path}"
+      exit 1
+    fi
+    mkdir -p "${repo_dir}/deploy"
+    cp "${artifact_path}" "${repo_dir}/deploy/amneziabot.jar"
+    echo "[deploy] Using prebuilt artifact: ${artifact_path}"
+  else
+    bash scripts/prod/cicd.sh build
+  fi
 
   if ! sudo -n systemctl list-unit-files | grep -q "^${SERVICE_NAME}\.service"; then
     echo "[deploy] ${SERVICE_NAME}.service not found, installing systemd unit..."

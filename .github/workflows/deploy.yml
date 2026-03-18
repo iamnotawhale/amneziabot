@@ -6,12 +6,63 @@ on:
       - main
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build admin UI and backend jar
+        run: |
+          set -euo pipefail
+          npm install
+          npm run admin:build
+          mvn -B --no-transfer-progress -DskipTests clean package
+          cp "$(ls -1 target/amneziabot-*.jar | grep -v '\.original$' | head -n1)" amneziabot.jar
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amneziabot-jar
+          path: amneziabot.jar
+          if-no-files-found: error
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: amneziabot-jar
+          path: .
+
+      - name: Upload jar to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          source: amneziabot.jar
+          target: /tmp
+          overwrite: true
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -64,6 +115,6 @@ jobs:
               exit 1
             fi
 
-            echo "[deploy] starting cicd deploy..."
-            bash "$REPO_DIR/scripts/prod/cicd.sh" deploy "$REPO_DIR" main
+            echo "[deploy] starting cicd deploy with prebuilt artifact..."
+            ARTIFACT_PATH=/tmp/amneziabot.jar bash "$REPO_DIR/scripts/prod/cicd.sh" deploy "$REPO_DIR" main
             echo "[deploy] done $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
