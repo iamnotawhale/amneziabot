@@ -137,6 +137,27 @@ cmd_deploy() {
   git fetch origin
   git reset --hard "origin/${git_ref}"
 
+  local missing_tools=()
+  for tool in npm mvn java git; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      missing_tools+=("${tool}")
+    fi
+  done
+
+  if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    echo "Missing required tools: ${missing_tools[*]}"
+    if command -v sudo >/dev/null 2>&1; then
+      echo "Installing dependencies automatically..."
+      sudo bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
+    elif [[ "${EUID}" -eq 0 ]]; then
+      bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
+    else
+      echo "Cannot install dependencies automatically (no sudo/root)."
+      echo "Run manually: sudo bash scripts/prod/cicd.sh install-deps"
+      exit 1
+    fi
+  fi
+
   bash scripts/prod/cicd.sh build
 
   if [[ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]]; then
