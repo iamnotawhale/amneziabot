@@ -151,7 +151,6 @@ Type=simple
 User=${run_user}
 Group=${run_user}
 WorkingDirectory=${repo_dir}
-EnvironmentFile=${repo_dir}/deploy/.env
 ExecStart=/usr/bin/env bash ${repo_dir}/scripts/prod/cicd.sh run
 Restart=always
 RestartSec=3
