@@ -84,12 +84,12 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
             }
             if (text.startsWith("/trial")) {
                 SubscriptionResponse response = subscriptionService.issueTrial(telegramId, username);
-                send(chatId, telegramMessageService.subscriptionIssuedMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.subscriptionIssuedHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
             if (text.startsWith("/key")) {
                 SubscriptionResponse response = subscriptionService.getActiveSubscription(telegramId);
-                send(chatId, telegramMessageService.currentKeyMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.currentKeyHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
             if (text.startsWith("/activate")) {
@@ -99,7 +99,7 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
                     return;
                 }
                 SubscriptionResponse response = subscriptionService.activatePlan(telegramId, username, parts[1].trim());
-                send(chatId, telegramMessageService.subscriptionIssuedMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.subscriptionIssuedHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
             send(chatId, "Неизвестная команда. Используйте /help", mainMenuKeyboard());
@@ -126,6 +126,20 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    private void sendHtml(Long chatId, String text, InlineKeyboardMarkup keyboardMarkup) {
+        SendMessage sendMessage = SendMessage.builder()
+                .chatId(chatId.toString())
+                .text(text)
+                .build();
+        sendMessage.setParseMode("HTML");
+        sendMessage.setDisableWebPagePreview(true);
+        sendMessage.setReplyMarkup(keyboardMarkup);
+        try {
+            execute(sendMessage);
+        } catch (TelegramApiException ignored) {
+        }
+    }
+
     private void onCallback(CallbackQuery callbackQuery) {
         Long chatId = callbackQuery.getMessage().getChatId();
         Long telegramId = callbackQuery.getFrom().getId();
@@ -133,6 +147,8 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
                 ? callbackQuery.getFrom().getUserName()
             : (callbackQuery.getFrom().getFirstName() != null ? callbackQuery.getFrom().getFirstName() : "user");
         String data = callbackQuery.getData();
+
+        acknowledgeCallback(callbackQuery.getId());
 
         try {
             if (CALLBACK_BACK.equals(data)) {
@@ -146,12 +162,12 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
             }
             if (CALLBACK_TRIAL.equals(data)) {
                 SubscriptionResponse response = subscriptionService.issueTrial(telegramId, username);
-                send(chatId, telegramMessageService.subscriptionIssuedMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.subscriptionIssuedHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
             if (CALLBACK_KEY.equals(data)) {
                 SubscriptionResponse response = subscriptionService.getActiveSubscription(telegramId);
-                send(chatId, telegramMessageService.currentKeyMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.currentKeyHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
             if (CALLBACK_ACTIVATE_CANCEL.equals(data)) {
@@ -171,15 +187,13 @@ public class AmneziaTelegramBot extends TelegramLongPollingBot {
                 }
                 String planCode = data.substring(CALLBACK_ACTIVATE_CONFIRM_PREFIX.length());
                 SubscriptionResponse response = subscriptionService.activatePlan(telegramId, username, planCode);
-                send(chatId, telegramMessageService.subscriptionIssuedMessage(response), mainMenuKeyboard());
+                sendHtml(chatId, telegramMessageService.subscriptionIssuedHtmlMessage(response), mainMenuKeyboard());
                 return;
             }
         } catch (BadRequestException | NotFoundException exception) {
             send(chatId, exception.getMessage(), mainMenuKeyboard());
         } catch (Exception exception) {
             send(chatId, "Ошибка сервера. Попробуйте позже.", mainMenuKeyboard());
-        } finally {
-            acknowledgeCallback(callbackQuery.getId());
         }
     }
 

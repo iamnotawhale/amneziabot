@@ -4,6 +4,7 @@ import com.iamnotawhale.amneziabot.api.dto.PlanResponse;
 import com.iamnotawhale.amneziabot.api.dto.SubscriptionResponse;
 import com.iamnotawhale.amneziabot.config.TelegramProperties;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.time.ZoneOffset;
@@ -61,20 +62,24 @@ public class TelegramMessageService {
         return builder.toString().trim();
     }
 
-    public String subscriptionIssuedMessage(SubscriptionResponse response) {
-        return "Подписка активирована: " + response.planCode() + "\n"
-                + "Действует до: " + formatEndDate(response.endsAt()) + "\n"
-                + "Лимит устройств: " + formatDeviceLimit(response.deviceLimit()) + "\n"
-                + "Ключ:\n" + response.vlessLink();
+    public String subscriptionIssuedHtmlMessage(SubscriptionResponse response) {
+        return "Подписка активирована: <b>" + escape(response.planCode()) + "</b>\n"
+                + "Действует до: " + escape(formatEndDate(response.endsAt())) + "\n"
+                + "Лимит устройств: " + escape(formatDeviceLimit(response.deviceLimit())) + "\n"
+                + "Ключ:\n<code>" + escape(response.vlessLink()) + "</code>";
     }
 
-    public String currentKeyMessage(SubscriptionResponse response) {
-        return "Ваш активный тариф: " + response.planCode() + "\n"
-                + "До: " + formatEndDate(response.endsAt()) + "\n"
-                + "Трафик: " + (response.trafficLimitBytes() == null
+    public String currentKeyHtmlMessage(SubscriptionResponse response) {
+        return "Ваш активный тариф: <b>" + escape(response.planCode()) + "</b>\n"
+                + "До: " + escape(formatEndDate(response.endsAt())) + "\n"
+                + "Трафик: " + escape(response.trafficLimitBytes() == null
                 ? "безлимит"
                 : toGigabytes(response.trafficUsedBytes()) + " / " + toGigabytes(response.trafficLimitBytes()) + " GB")
-                + "\nКлюч:\n" + response.vlessLink();
+                + "\nКлюч:\n<code>" + escape(response.vlessLink()) + "</code>";
+    }
+
+    private String escape(String value) {
+        return HtmlUtils.htmlEscape(value == null ? "" : value);
     }
 
     private String formatDuration(Integer durationDays) {

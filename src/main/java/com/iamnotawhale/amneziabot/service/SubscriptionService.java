@@ -166,6 +166,13 @@ public class SubscriptionService {
     }
 
     private SubscriptionResponse toResponse(Subscription subscription) {
+        String vlessLink = subscription.getXrayClientUuid() == null || subscription.getXrayClientUuid().isBlank()
+            ? subscription.getVlessLink()
+            : vlessLinkService.buildLink(
+            subscription.getXrayClientUuid(),
+            "amneziabot_" + subscription.getUser().getTelegramId()
+        );
+
         return new SubscriptionResponse(
                 subscription.getId(),
                 subscription.getStatus().name(),
@@ -176,7 +183,7 @@ public class SubscriptionService {
                 subscription.getPlan().getDeviceLimit(),
                 subscription.getStartsAt(),
                 subscription.getEndsAt(),
-                subscription.getVlessLink()
+                vlessLink
         );
     }
 }
