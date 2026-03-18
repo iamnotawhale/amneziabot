@@ -31,6 +31,33 @@ require_root() {
   fi
 }
 
+load_env_file() {
+  local env_file="$1"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+    if [[ "$line" != *=* ]]; then
+      continue
+    fi
+
+    local key="${line%%=*}"
+    local value="${line#*=}"
+
+    key="$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+    if [[ "$value" =~ ^".*"$ ]] || [[ "$value" =~ ^'.*'$ ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+
+    export "$key=$value"
+  done < "$env_file"
+}
+
 run_with_heartbeat() {
   local label="$1"
   shift
@@ -126,9 +153,7 @@ cmd_run() {
     exit 1
   fi
 
-  set -a
-  source "${env_file}"
-  set +a
+  load_env_file "${env_file}"
 
   exec java ${JAVA_OPTS:-"-Xms256m -Xmx512m"} -jar "${jar_file}"
 }
