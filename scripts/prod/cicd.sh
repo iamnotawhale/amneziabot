@@ -226,6 +226,11 @@ cmd_deploy() {
 
   bash scripts/prod/cicd.sh build
 
+  if ! sudo -n systemctl list-unit-files | grep -q "^${SERVICE_NAME}\.service"; then
+    echo "[deploy] ${SERVICE_NAME}.service not found, installing systemd unit..."
+    sudo -n bash "${repo_dir}/scripts/prod/cicd.sh" install-service "${repo_dir}" "$(id -un)"
+  fi
+
   if [[ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]]; then
     if grep -q "scripts/prod/start.sh" "/etc/systemd/system/${SERVICE_NAME}.service"; then
       sudo -n sed -i "s#ExecStart=.*#ExecStart=/usr/bin/env bash ${repo_dir}/scripts/prod/cicd.sh run#" "/etc/systemd/system/${SERVICE_NAME}.service"
