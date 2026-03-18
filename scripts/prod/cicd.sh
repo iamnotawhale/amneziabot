@@ -37,14 +37,32 @@ cmd_install_deps() {
   local target_user="${SUDO_USER:-root}"
 
   apt-get update -y
+  apt-get install -y ca-certificates curl gnupg
+
+  local need_node_install="true"
+  if command -v node >/dev/null 2>&1; then
+    local node_major
+    node_major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+    if [[ "${node_major}" =~ ^[0-9]+$ ]] && [[ "${node_major}" -ge 18 ]]; then
+      need_node_install="false"
+    fi
+  fi
+
+  if [[ "${need_node_install}" == "true" ]]; then
+    echo "Installing Node.js 20 LTS..."
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+      > /etc/apt/sources.list.d/nodesource.list
+    apt-get update -y
+    apt-get install -y nodejs
+  fi
+
   apt-get install -y \
-    ca-certificates \
-    curl \
     git \
     openjdk-17-jre-headless \
-    maven \
-    nodejs \
-    npm
+    maven
 
   if command -v docker >/dev/null 2>&1; then
     usermod -aG docker "${target_user}" || true
