@@ -163,8 +163,12 @@ EOF
 
   systemctl daemon-reload
   systemctl enable "${SERVICE_NAME}"
-  systemctl restart "${SERVICE_NAME}"
-  systemctl --no-pager status "${SERVICE_NAME}" || true
+  if [[ "${SKIP_SERVICE_RESTART:-0}" != "1" ]]; then
+    systemctl restart "${SERVICE_NAME}"
+    systemctl --no-pager status "${SERVICE_NAME}" || true
+  else
+    echo "Service unit installed/updated (restart skipped)."
+  fi
 }
 
 cmd_deploy() {
@@ -228,7 +232,24 @@ cmd_deploy() {
 
   if ! sudo -n systemctl list-unit-files | grep -q "^${SERVICE_NAME}\.service"; then
     echo "[deploy] ${SERVICE_NAME}.service not found, installing systemd unit..."
-    sudo -n bash "${repo_dir}/scripts/prod/cicd.sh" install-service "${repo_dir}" "$(id -un)"
+    sudo -n env SKIP_SERVICE_RESTART=1 bash "${repo_dir}/scripts/prod/cicd.sh" install-service "${repo_dir}" "$(id -un)"
+  fi
+
+  local env_file="${repo_dir}/deploy/.env"
+  if [[ ! -f "${env_file}" ]]; then
+    echo "[deploy] Missing ${env_file}"
+    if [[ -f "${repo_dir}/deploy/.env.example" ]]; then
+      echo "[deploy] Creating ${env_file} from example (please fill real secrets/values)."
+      cp "${repo_dir}/deploy/.env.example" "${env_file}"
+    fi
+    echo "[deploy] Deployment stopped: configure ${env_file} and re-run."
+    exit 1
+  fi
+
+  if grep -Eq 'PUT_YOUR_|YOUR_XRAY_|CHANGE_ME' "${env_file}"; then
+    echo "[deploy] ${env_file} still contains placeholder values."
+    echo "[deploy] Fill real TELEGRAM/ADMIN/XRAY values and re-run deploy."
+    exit 1
   fi
 
   if [[ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]]; then
@@ -238,8 +259,30 @@ cmd_deploy() {
     fi
   fi
 
-  sudo -n systemctl restart "${SERVICE_NAME}"
-  sudo -n systemctl --no-pager status "${SERVICE_NAME}" || true
+  if ! sudo -n systemctl restart "${SERVICE_NAME}"; then
+    echo "[deploy] Failed to restart ${SERVICE_NAME}.service"
+    sudo -n systemctl --no-pager -l status "${SERVICE_NAME}" || true
+    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager -l || true
+    exit 1
+  fi
+
+  local active_ok="false"
+  for _ in 1 2 3 4 5; do
+    if sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
+      active_ok="true"
+      break
+    fi
+    sleep 2
+  done
+
+  if [[ "${active_ok}" != "true" ]]; then
+    echo "[deploy] ${SERVICE_NAME}.service did not become active"
+    sudo -n systemctl --no-pager -l status "${SERVICE_NAME}" || true
+    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager -l || true
+    exit 1
+  fi
+
+  sudo -n systemctl --no-pager -l status "${SERVICE_NAME}" || true
 }
 
 main() {
