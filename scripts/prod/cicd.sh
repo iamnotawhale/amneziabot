@@ -50,9 +50,13 @@ cmd_install_deps() {
 
   if [[ "${need_node_install}" == "true" ]]; then
     echo "Installing Node.js 20 LTS..."
+    echo "Removing legacy Node.js packages if present..."
+    apt-get remove -y nodejs npm libnode-dev nodejs-doc || true
+    apt-get -f install -y || true
+
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+      | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
       > /etc/apt/sources.list.d/nodesource.list
     apt-get update -y
