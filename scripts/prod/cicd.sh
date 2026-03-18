@@ -156,14 +156,28 @@ cmd_deploy() {
   git reset --hard "origin/${git_ref}"
 
   local missing_tools=()
+  local need_runtime_fix="false"
   for tool in npm mvn java git; do
     if ! command -v "${tool}" >/dev/null 2>&1; then
       missing_tools+=("${tool}")
     fi
   done
 
-  if [[ ${#missing_tools[@]} -gt 0 ]]; then
-    echo "Missing required tools: ${missing_tools[*]}"
+  if command -v node >/dev/null 2>&1; then
+    local node_major
+    node_major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+    if [[ ! "${node_major}" =~ ^[0-9]+$ ]] || [[ "${node_major}" -lt 18 ]]; then
+      need_runtime_fix="true"
+      echo "Node.js is too old: $(node -v) (required >= v18)"
+    fi
+  else
+    need_runtime_fix="true"
+  fi
+
+  if [[ ${#missing_tools[@]} -gt 0 ]] || [[ "${need_runtime_fix}" == "true" ]]; then
+    if [[ ${#missing_tools[@]} -gt 0 ]]; then
+      echo "Missing required tools: ${missing_tools[*]}"
+    fi
     if command -v sudo >/dev/null 2>&1; then
       echo "Installing dependencies automatically..."
       sudo bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
@@ -174,6 +188,11 @@ cmd_deploy() {
       echo "Run manually: sudo bash scripts/prod/cicd.sh install-deps"
       exit 1
     fi
+
+    hash -r
+    echo "Runtime versions after install:"
+    command -v node >/dev/null 2>&1 && node -v || true
+    command -v npm >/dev/null 2>&1 && npm -v || true
   fi
 
   bash scripts/prod/cicd.sh build
