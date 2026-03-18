@@ -1,0 +1,48 @@
+target/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.log
+node_modules/
+package-lock.json
+
+# Environment secrets
+deploy/.env
+.env
+.env.local
+.env.*.local
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+*.jar
+*.war
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Lock files
+*.lock
+.gradle/
+
+# History/conversation logs (local dev only)
+history.txt
+conversation.txt
+
+# Local documentation (optional - remove if you want to track)
+PUSH_CHECKLIST.md
+SECURITY_CHANGES.md
+PUSH_INSTRUCTIONS.sh
