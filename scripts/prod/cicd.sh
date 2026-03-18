@@ -186,7 +186,7 @@ cmd_deploy() {
     fi
     if command -v sudo >/dev/null 2>&1; then
       echo "Installing dependencies automatically..."
-      sudo bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
+      sudo -n bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
     elif [[ "${EUID}" -eq 0 ]]; then
       bash "${repo_dir}/scripts/prod/cicd.sh" install-deps
     else
@@ -205,13 +205,13 @@ cmd_deploy() {
 
   if [[ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]]; then
     if grep -q "scripts/prod/start.sh" "/etc/systemd/system/${SERVICE_NAME}.service"; then
-      sudo sed -i "s#ExecStart=.*#ExecStart=/usr/bin/env bash ${repo_dir}/scripts/prod/cicd.sh run#" "/etc/systemd/system/${SERVICE_NAME}.service"
-      sudo systemctl daemon-reload
+      sudo -n sed -i "s#ExecStart=.*#ExecStart=/usr/bin/env bash ${repo_dir}/scripts/prod/cicd.sh run#" "/etc/systemd/system/${SERVICE_NAME}.service"
+      sudo -n systemctl daemon-reload
     fi
   fi
 
-  sudo systemctl restart "${SERVICE_NAME}"
-  sudo systemctl --no-pager status "${SERVICE_NAME}" || true
+  sudo -n systemctl restart "${SERVICE_NAME}"
+  sudo -n systemctl --no-pager status "${SERVICE_NAME}" || true
 }
 
 main() {

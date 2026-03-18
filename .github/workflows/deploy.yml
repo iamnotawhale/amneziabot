@@ -21,18 +21,28 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           command_timeout: 90m
+          script_stop: true
           script: |
             set -euo pipefail
+            echo "[deploy] start $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+            if command -v sudo >/dev/null 2>&1; then
+              if ! sudo -n true 2>/dev/null; then
+                echo "Passwordless sudo is required for DEPLOY_USER=${USER}."
+                echo "Grant NOPASSWD for git/systemctl/apt or run deploy as root."
+                exit 1
+              fi
+            fi
 
             REPO_DIR="/opt/amneziabot"
             REPO_URL="https://github.com/${{ github.repository }}.git"
 
             if [ ! -d "$REPO_DIR/.git" ]; then
               echo "Repo not found at $REPO_DIR, cloning..."
-              sudo mkdir -p /opt
-              sudo rm -rf "$REPO_DIR"
-              sudo git clone "$REPO_URL" "$REPO_DIR"
-              sudo chown -R "${USER}:${USER}" "$REPO_DIR"
+              sudo -n mkdir -p /opt
+              sudo -n rm -rf "$REPO_DIR"
+              sudo -n git clone "$REPO_URL" "$REPO_DIR"
+              sudo -n chown -R "${USER}:${USER}" "$REPO_DIR"
             fi
 
             cd "$REPO_DIR"
@@ -45,3 +55,4 @@ jobs:
             fi
 
             bash "$REPO_DIR/scripts/prod/cicd.sh" deploy "$REPO_DIR" main
+            echo "[deploy] done $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
