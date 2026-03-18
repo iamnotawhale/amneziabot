@@ -80,14 +80,16 @@ cmd_install_deps() {
 cmd_build() {
   cd "${ROOT_DIR}"
 
+  echo "[build] started at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
   npm install
   npm run admin:build
-  mvn -DskipTests clean package
+  mvn -B --no-transfer-progress -DskipTests clean package
 
   mkdir -p deploy
   local jar_file
   jar_file="$(ls -1 target/amneziabot-*.jar | grep -v '\.original$' | head -n1)"
   cp "${jar_file}" deploy/amneziabot.jar
+  echo "[build] finished at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
   echo "Build completed: ${ROOT_DIR}/deploy/amneziabot.jar"
 }
 
