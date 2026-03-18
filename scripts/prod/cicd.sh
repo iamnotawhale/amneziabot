@@ -31,6 +31,21 @@ require_root() {
   fi
 }
 
+run_with_heartbeat() {
+  local label="$1"
+  shift
+
+  "$@" &
+  local cmd_pid=$!
+
+  while kill -0 "${cmd_pid}" 2>/dev/null; do
+    echo "[heartbeat] ${label} still running at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    sleep 20
+  done
+
+  wait "${cmd_pid}"
+}
+
 cmd_install_deps() {
   require_root
 
@@ -81,9 +96,9 @@ cmd_build() {
   cd "${ROOT_DIR}"
 
   echo "[build] started at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-  npm install
-  npm run admin:build
-  mvn -B --no-transfer-progress -DskipTests clean package
+  run_with_heartbeat "npm install" npm install
+  run_with_heartbeat "npm run admin:build" npm run admin:build
+  run_with_heartbeat "maven package" mvn -B --no-transfer-progress -DskipTests clean package
 
   mkdir -p deploy
   local jar_file
