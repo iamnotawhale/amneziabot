@@ -22,9 +22,13 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           command_timeout: 90m
           script_stop: true
+          request_pty: true
+          debug: true
           script: |
             set -euo pipefail
             echo "[deploy] start $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "[deploy] user=$(id -un) host=$(hostname) pwd=$(pwd)"
+            echo "[deploy] checking sudo..."
 
             if command -v sudo >/dev/null 2>&1; then
               if ! sudo -n true 2>/dev/null; then
@@ -33,9 +37,11 @@ jobs:
                 exit 1
               fi
             fi
+            echo "[deploy] sudo check passed"
 
             REPO_DIR="/opt/amneziabot"
             REPO_URL="https://github.com/${{ github.repository }}.git"
+            echo "[deploy] repo dir: ${REPO_DIR}"
 
             if [ ! -d "$REPO_DIR/.git" ]; then
               echo "Repo not found at $REPO_DIR, cloning..."
@@ -46,13 +52,18 @@ jobs:
             fi
 
             cd "$REPO_DIR"
-            git fetch origin
+            echo "[deploy] fetching origin/main..."
+            timeout 180 git fetch origin
+            echo "[deploy] fetch done"
+            echo "[deploy] resetting to origin/main..."
             git reset --hard origin/main
+            echo "[deploy] reset done"
 
             if [ ! -f "$REPO_DIR/scripts/prod/cicd.sh" ]; then
               echo "scripts/prod/cicd.sh not found after update"
               exit 1
             fi
 
+            echo "[deploy] starting cicd deploy..."
             bash "$REPO_DIR/scripts/prod/cicd.sh" deploy "$REPO_DIR" main
             echo "[deploy] done $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
