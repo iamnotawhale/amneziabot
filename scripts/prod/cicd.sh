@@ -173,8 +173,16 @@ cmd_deploy() {
 
   cd "${repo_dir}"
 
+  echo "[deploy] sync start $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
   git fetch origin
   git reset --hard "origin/${git_ref}"
+  echo "[deploy] sync done $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+  if [[ "${DEPLOY_REEXEC:-0}" != "1" ]]; then
+    echo "[deploy] re-exec with updated script"
+    export DEPLOY_REEXEC=1
+    exec bash "${repo_dir}/scripts/prod/cicd.sh" deploy "${repo_dir}" "${git_ref}"
+  fi
 
   local missing_tools=()
   local need_runtime_fix="false"
